@@ -48,13 +48,31 @@ class SAMDataset(Dataset):
     
     @staticmethod
     def get_bounding_box(bbox):
-        rand = np.random.randint(2, 100)
+        rand = np.random.randint(20, 120)
         res = [0 , 0 , 0 , 0]
         res[0] = int(max(0, bbox[0] - rand))
         res[1] = int(max(0, bbox[1] - rand))
         res[2] = int(bbox[2] + 2 * rand)
         res[3] = int(bbox[3] + 2 * rand)
         return res, rand
+    
+    staticmethod
+    def get_largest_bbox(seg_list):
+        all_points = []
+        for seg in seg_list:
+            segmentation_np = np.array(seg).reshape((-1, 2))
+            all_points.append(segmentation_np)
+        
+        # Concatenate all points into a single array
+        all_points = np.vstack(all_points)
+        
+        # Get the minimum and maximum x and y values
+        x_min, y_min = np.min(all_points, axis=0)
+        x_max, y_max = np.max(all_points, axis=0)
+        
+        # Return the bounding box in the format [x_min, y_min, width, height]
+        return [x_min, y_min, x_max - x_min, y_max - y_min]
+    
 
     def __getitem__(self, idx):
         annotation = self.annotations[idx]
@@ -70,14 +88,18 @@ class SAMDataset(Dataset):
         image = np.array(image)
         if len(image.shape) == 2:
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+            
+        mask = np.zeros((image_info["height"], image_info["width"]), dtype=np.uint8)
+        for seg in annotation["segmentation"]:
+            segmentation_np = np.array(seg).reshape((-1, 2)).astype(np.int32)
+            cv2.fillPoly(mask, [segmentation_np], 255)
         mask = np.array(mask)
         
-        bbox = annotation['bbox']
+        bbox = SAMDataset.get_largest_bbox(annotation["segmentation"])
         new_bbox, rand = SAMDataset.get_bounding_box(bbox)
         
         image = image[new_bbox[1]:new_bbox[1] + new_bbox[3], new_bbox[0]:new_bbox[0] + new_bbox[2]]
         mask = mask[new_bbox[1]:new_bbox[1] + new_bbox[3], new_bbox[0]:new_bbox[0] + new_bbox[2]]
-        
         original_width = image.shape[0]
         original_height = image.shape[1]
         
@@ -85,21 +107,22 @@ class SAMDataset(Dataset):
         new_width = 256
 
         # Scaling factors
-        scale_x = new_width / original_width
-        scale_y = new_height / original_height
+        scale_x = new_height / original_height
+        scale_y = new_width / original_width
         
-        bbox[0] = rand * scale_y  # Scale x-coordinates
-        bbox[2] *= scale_y  # Scale x-coordinates
-        bbox[1] = rand * scale_x  # Scale y-coordinates
-        bbox[3] *= scale_x  # Scale y-coordinates
+        bbox[0] = rand * scale_x  # Scale x-coordinates
+        bbox[2] *= scale_x  # Scale x-coordinates
+        bbox[1] = rand * scale_y  # Scale y-coordinates
+        bbox[3] *= scale_y  # Scale y-coordinates
         # get bounding box prompt
         bbox = np.array(bbox)
         prompt = bbox
+
         
         # prepare image and prompt for the model
         image = cv2.resize(image, (new_width, new_height))
         mask = cv2.resize(mask, (new_width, new_height))
-        mask = ((255 - mask) > 127) * 1
+        mask = (mask > 127) * 1
 
         inputs = self.processor(image, input_boxes=[[[prompt]]], return_tensors="pt")
 
