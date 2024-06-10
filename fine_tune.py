@@ -48,8 +48,6 @@ class SAMDataset(Dataset):
     
     @staticmethod
     def get_bounding_box(bbox):
-        # get bounding box from mask
-        # add perturbation to bounding box coordinates
         rand = np.random.randint(2, 100)
         bbox[0] = int(max(0, bbox[0] - rand))
         bbox[1] = int(max(0, bbox[1] - rand))
@@ -74,10 +72,11 @@ class SAMDataset(Dataset):
         mask = np.array(mask)
         
         bbox = annotation['bbox']
+        seg = annotation['segmentation']
         bbox = SAMDataset.get_bounding_box(bbox)
         
-        image = image[bbox[0]:bbox[0] + bbox[2], bbox[1]:bbox[1] + bbox[3]]
-        mask = mask[bbox[0]:bbox[0] + bbox[2], bbox[1]:bbox[1] + bbox[3]]
+        image = image[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        mask = mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
         
         original_width = image.shape[0]
         original_height = image.shape[1]
@@ -89,10 +88,10 @@ class SAMDataset(Dataset):
         scale_x = new_width / original_width
         scale_y = new_height / original_height
         
-        bbox[0] *= scale_x  # Scale x-coordinates
-        bbox[2] *= scale_x  # Scale x-coordinates
-        bbox[1] *= scale_y  # Scale y-coordinates
-        bbox[3] *= scale_y  # Scale y-coordinates
+        # bbox[0] *= scale_y  # Scale x-coordinates
+        bbox[2] *= scale_y  # Scale x-coordinates
+        # bbox[1] *= scale_x  # Scale y-coordinates
+        bbox[3] *= scale_x  # Scale y-coordinates
         # get bounding box prompt
         bbox = np.array(bbox)
         prompt = bbox
@@ -100,6 +99,7 @@ class SAMDataset(Dataset):
         # prepare image and prompt for the model
         image = cv2.resize(image, (new_width, new_height))
         mask = cv2.resize(mask, (new_width, new_height))
+        mask = ((255 - mask) > 127) * 1
 
         inputs = self.processor(image, input_boxes=[[[prompt]]], return_tensors="pt")
 
@@ -111,7 +111,7 @@ class SAMDataset(Dataset):
         # add ground truth segmentation
         inputs["ground_truth_mask"] = mask
 
-        return inputs, (image, mask, bbox)
+        return inputs, (image, mask, bbox, {'seg': seg})
     
     
 
