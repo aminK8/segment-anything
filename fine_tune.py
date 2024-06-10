@@ -81,7 +81,7 @@ class SAMDataset(Dataset):
             if image_info['id'] == annotation['image_id']:
                 image_file_name = image_info['file_name']
                 
-        
+        # print(annotation['id'])
         image = Image.open(os.path.join(self.images_base_url, image_file_name))
         mask = Image.open(os.path.join(self.masks_base_url, image_file_name))
 
@@ -141,7 +141,7 @@ class SAMDataset(Dataset):
 processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
 images_base_url = "/home/ubuntu/dataset/data_pulte/pulte/floorplans"
 masks_base_url = "/home/ubuntu/dataset/data_pulte/pulte/panoptic_semseg_maskdino_augmented_floorplans"
-json_url = "/home/ubuntu/dataset/data_pulte/pulte/floorplans/_annotations.coco.json"
+json_url = "/home/ubuntu/dataset/data_pulte/pulte/floorplans/_annotation_pulte_maskdino_augmented_file.json"
 
 train_dataset = SAMDataset(images_base_url=images_base_url, masks_base_url=masks_base_url, json_url=json_url, processor=processor)
 
@@ -178,6 +178,7 @@ for k,v in batch.items():
     
 
 model = SamModel.from_pretrained("facebook/sam-vit-base")
+# model = SamModel.from_pretrained("./SAM-ZOO/sam_model_checkpoint.pth")
 
 # make sure we only compute gradients for mask decoder
 for name, param in model.named_parameters():
@@ -193,12 +194,13 @@ optimizer = AdamW(model.mask_decoder.parameters(), lr=1e-5, weight_decay=0)
 seg_loss = torch.nn.MSELoss()
 
 #Training loop
-num_epochs = 1
+num_epochs = 20
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
 
-model.train()
+
+best_loss = 1000000
 interation_count = 0
 for epoch in range(num_epochs):
     epoch_losses = []
@@ -221,8 +223,14 @@ for epoch in range(num_epochs):
         # optimize
         optimizer.step()
         epoch_losses.append(loss.item())
-        if interation_count % 100 == 99:
+        if interation_count % 500 == 499:
             print(f"{interation_count}: loss is {loss.item()}")
+            lo = loss.item()
+
 
     print(f'EPOCH: {epoch}')
     print(f'Mean loss: {mean(epoch_losses)}')
+    if lo < best_loss:
+        print("saved model.")
+        torch.save(model.state_dict(), "./SAM-ZOO/sam_model_checkpoint.pth")
+        best_loss = lo
