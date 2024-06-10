@@ -49,11 +49,12 @@ class SAMDataset(Dataset):
     @staticmethod
     def get_bounding_box(bbox):
         rand = np.random.randint(2, 100)
-        bbox[0] = int(max(0, bbox[0] - rand))
-        bbox[1] = int(max(0, bbox[1] - rand))
-        bbox[2] = int(bbox[2] + 2 * rand)
-        bbox[3] = int(bbox[3] + 2 * rand)
-        return bbox
+        res = [0 , 0 , 0 , 0]
+        res[0] = int(max(0, bbox[0] - rand))
+        res[1] = int(max(0, bbox[1] - rand))
+        res[2] = int(bbox[2] + 2 * rand)
+        res[3] = int(bbox[3] + 2 * rand)
+        return res, rand
 
     def __getitem__(self, idx):
         annotation = self.annotations[idx]
@@ -72,11 +73,10 @@ class SAMDataset(Dataset):
         mask = np.array(mask)
         
         bbox = annotation['bbox']
-        seg = annotation['segmentation']
-        bbox = SAMDataset.get_bounding_box(bbox)
+        new_bbox, rand = SAMDataset.get_bounding_box(bbox)
         
-        image = image[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
-        mask = mask[bbox[1]:bbox[1] + bbox[3], bbox[0]:bbox[0] + bbox[2]]
+        image = image[new_bbox[1]:new_bbox[1] + new_bbox[3], new_bbox[0]:new_bbox[0] + new_bbox[2]]
+        mask = mask[new_bbox[1]:new_bbox[1] + new_bbox[3], new_bbox[0]:new_bbox[0] + new_bbox[2]]
         
         original_width = image.shape[0]
         original_height = image.shape[1]
@@ -88,9 +88,9 @@ class SAMDataset(Dataset):
         scale_x = new_width / original_width
         scale_y = new_height / original_height
         
-        # bbox[0] *= scale_y  # Scale x-coordinates
+        bbox[0] = rand * scale_y  # Scale x-coordinates
         bbox[2] *= scale_y  # Scale x-coordinates
-        # bbox[1] *= scale_x  # Scale y-coordinates
+        bbox[1] = rand * scale_x  # Scale y-coordinates
         bbox[3] *= scale_x  # Scale y-coordinates
         # get bounding box prompt
         bbox = np.array(bbox)
@@ -111,7 +111,7 @@ class SAMDataset(Dataset):
         # add ground truth segmentation
         inputs["ground_truth_mask"] = mask
 
-        return inputs, (image, mask, bbox, {'seg': seg})
+        return inputs, (image, mask, bbox)
     
     
 
