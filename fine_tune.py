@@ -124,7 +124,32 @@ train_dataset = SAMDataset(images_base_url=images_base_url, masks_base_url=masks
 
 
 train_dataloader = DataLoader(train_dataset, batch_size=3, shuffle=True, drop_last=False)
-batch = next(iter(train_dataloader))
+batch, info = next(iter(train_dataloader))
+fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+image, mask, bbox = info
+print(image.shape)
+print(mask.shape)
+print(bbox.shape)
+image = image[0]
+mask = mask[0]
+bbox = bbox[0]
+# Plot the first image
+axes[0].imshow(image)
+rect1 = Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], linewidth=2, edgecolor='r', facecolor='none')
+axes[0].add_patch(rect1)
+axes[0].set_title("Image 1 with Bounding Box")
+axes[0].axis('off')  # Hide the axis
+
+# Plot the second image
+axes[1].imshow(mask)
+rect2 = Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], linewidth=2, edgecolor='b', facecolor='none')
+axes[1].add_patch(rect2)
+axes[1].set_title("Image 2 with Bounding Box")
+axes[1].axis('off')  # Hide the axis
+
+plt.show()
+
+
 for k,v in batch.items():
     print(k,v.shape)
     
@@ -154,27 +179,7 @@ model.train()
 interation_count = 0
 for epoch in range(num_epochs):
     epoch_losses = []
-    for batch, info in tqdm(train_dataloader):
-        image, mask, bbox = info
-        
-        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
-
-        # Plot the first image
-        axes[0].imshow(image)
-        rect1 = Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], linewidth=2, edgecolor='r', facecolor='none')
-        axes[0].add_patch(rect1)
-        axes[0].set_title("Image 1 with Bounding Box")
-        axes[0].axis('off')  # Hide the axis
-
-        # Plot the second image
-        axes[1].imshow(mask)
-        rect2 = Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], linewidth=2, edgecolor='b', facecolor='none')
-        axes[1].add_patch(rect2)
-        axes[1].set_title("Image 2 with Bounding Box")
-        axes[1].axis('off')  # Hide the axis
-
-        # Show the plot
-        plt.show()
+    for batch, _ in tqdm(train_dataloader):
         interation_count += 1
         # forward pass
         outputs = model(pixel_values=batch["pixel_values"].to(device),
