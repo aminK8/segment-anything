@@ -38,6 +38,11 @@ The following optional dependencies are necessary for mask post-processing, savi
 pip install opencv-python pycocotools matplotlib onnxruntime onnx
 ```
 
+```
+pip install patchify
+pip install transformers
+```
+
 ## <a name="GettingStarted"></a>Getting Started
 
 First download a [model checkpoint](#model-checkpoints). Then the model can be used in just a few lines to get masks from a given prompt:
