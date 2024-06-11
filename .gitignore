@@ -12,6 +12,9 @@ build/
 dist/
 wheels/
 
+*model.safetensors
+*.pth
+
 # pytorch/python/numpy formats
 *.pth
 *.pkl
